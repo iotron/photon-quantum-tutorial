@@ -1,0 +1,85 @@
+This document provides an in‐depth discussion of what Photon Quantum is, its core principles and architecture, its advantages in multiplayer game development, and how it fundamentally differs from Unity’s classic GameObject and MonoBehaviour paradigm. The examples refer to code snippets and concepts drawn from our production‐ready code.
+
+---
+
+**Photon Quantum Overview**
+
+Photon Quantum is a high-performance deterministic multiplayer game engine built on an advanced Entity Component System (ECS) architecture. It is designed to provide a robust framework for developing online multiplayer games with reliable network synchronization, efficient rollback simulation, and deterministic outcomes across all client platforms. 
+
+### Core Concepts
+
+**Deterministic Simulation:**  
+At the heart of Photon Quantum is the deterministic simulation. Unlike traditional game engines that use floating-point arithmetic, Quantum employs fixed-point arithmetic (FP) to ensure that all game logic computations yield identical results on every device. This determinism enables robust replay and rollback mechanisms, which are essential for resolving network latency issues and ensuring a consistent multiplayer experience.
+
+For example, the bullet simulation in our production code is driven by fixed-point numbers:
+
+```csharp
+public override void Update(Frame frame, ref Filter filter)
+{
+    // Calculate the new position by using fixed-point arithmetic
+    filter.Transform->Position += filter.BulletFields->Direction * frame.DeltaTime;
+    // Check if the bullet is out of range and trigger the bullet action accordingly
+    CheckBulletDistance(frame, ref filter);
+}
+```
+
+This snippet from the **BulletSystem.cs** file shows how Quantum uses FP values (via the `FP` type) to perform calculations deterministically.
+
+**Entity Component System (ECS) Architecture:**  
+Photon Quantum is built around an ECS architecture that emphasizes data-oriented design. In Quantum:
+
+- **Entities** represent unique game objects (e.g., characters, bullets, asteroids).
+- **Components** are simple data structures attached to entities (for example, `Transform2D`, `Status`, and `WeaponInventory`).
+- **Systems** are responsible for updating entities with specific components. They operate on a filtered list of entities, ensuring that each system only processes entities that match its component requirements.
+
+A typical system in Quantum inherits from classes such as `SystemMainThreadFilter<T>` or `SystemSignalsOnly`. This is in contrast to Unity’s MonoBehaviour scripts where game logic is attached to GameObjects. Here’s an excerpt showing the ECS update pattern:
+
+```csharp
+public override void Update(Frame frame, ref Filter filter)
+{
+    if (filter.Status->IsDead)
+    {
+        return;
+    }
+    QuantumDemoInputPlatformer2D input = *frame.GetPlayerInput(filter.PlayerLink->Player);
+    var config = frame.FindAsset(filter.KCC->Config);
+    filter.KCC->Input = input;
+    config.Move(frame, filter.Entity, filter.Transform, filter.KCC);
+}
+```
+
+This sample (from **MovementSystem.cs**) demonstrates iterating over entities that meet a specified filter (having components like `Transform2D`, `PlayerLink`, `Status`, etc.) and applying game logic based solely on their data. This approach minimizes the overhead typically associated with Unity’s component-based (MonoBehaviour) model.
+
+**Separation of Simulation and View:**  
+Another key concept is the strict separation between the simulation and the view. Quantum runs a fully deterministic simulation where game state is updated without direct reference to rendering. The view is handled separately through a set of entity view components (e.g., `QuantumEntityViewComponent`). The simulation code remains isolated from the rendering code, enabling efficient rollback and deterministic re-simulation even if the visual representation is non-deterministic.
+
+For instance, visual effects for bullets are managed through view components like **BulletFxController.cs**:
+
+```csharp
+public override void OnInitialize()
+{
+    QuantumEvent.Subscribe<EventOnBulletDestroyed>(this, OnBulletDestroyed);
+}
+```
+
+This code shows that the view component subscribes to simulation events (e.g., bullet destruction) and then updates visual effects accordingly. This keeps the simulation logic (which is critical for gameplay and network consistency) separate from the view logic (which may use Unity’s flexible rendering and animation features).
+
+### Advantages over Unity’s MonoBehaviour Model
+
+- **Determinism:**  
+  Photon Quantum guarantees that the simulation runs identically on every client by relying on fixed-point math and a data-driven ECS. Unity’s standard floating-point computations in MonoBehaviour scripts may lead to small discrepancies that can build up, especially in multiplayer games.
+
+- **Rollback and Re-Simulation:**  
+  With Quantum’s deterministic simulation, when incorrect predictions occur (due to network latency or packet loss), the simulation can “roll back” and then re-simulate using verified inputs. This ensures that all clients eventually converge on the same game state, something that is significantly more challenging when using Unity’s built-in systems.
+
+- **Modularity:**  
+  Quantum organizes game logic into systems and components that are decoupled from Unity’s scene objects. This modularity makes it easier to optimize the performance-critical parts of the simulation and to implement complex multiplayer features without being tied to the Unity GameObject lifecycle.
+
+- **Network Efficiency:**  
+  Since only player inputs (and not the entire game state) are sent over the network, Photon Quantum minimizes bandwidth usage. The simulation state is deterministically reproduced on all clients. This is in contrast to Unity’s typical approach where significant amounts of state data might be synchronized between clients.
+
+### Summary
+
+Photon Quantum represents a paradigm shift from Unity’s classic object-oriented, MonoBehaviour-based framework to a more data-driven, deterministic simulation model. By leveraging the ECS architecture, fixed-point arithmetic, and a clear separation between simulation and view, Quantum enables the development of robust, high-performance multiplayer games. This overview has provided a glimpse into its core functionalities using production-grade code examples, setting the stage for deeper exploration into each feature in the subsequent sections of this guide.
+
+---
