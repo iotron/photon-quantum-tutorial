@@ -73,8 +73,3 @@
 *Note: This guide is targeted at intermediate Unity developers who are learning Photon Quantum and are familiar with the basics of Unity. The guide compares typical Unity implementations with Photon Quantum’s ECS/deterministic approach, supported by extensive code examples from production-quality scripts.*
 
 ---
-
-> **Next Steps:** Each section and subsection will be elaborated on with detailed explanations, theory, and production code snippets as referenced from the provided 64 files. We will generate the guide page by page in Markdown format, starting with the "Introduction" section.
-
----
-
